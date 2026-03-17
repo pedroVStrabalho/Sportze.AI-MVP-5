@@ -1,5 +1,580 @@
 import streamlit as st
 import random
+from datetime import date, datetime
+
+# =========================
+# PAGE SETUP
+# =========================
+st.set_page_config(page_title="Sportze.AI", layout="wide")
+
+st.title("Sportze.AI")
+st.write("Generate smarter, more professional sport-specific training sessions.")
+
+TODAY = date(2026, 3, 17)
+
+# =========================
+# SESSION STATE
+# =========================
+if "active_section" not in st.session_state:
+    st.session_state.active_section = "Training Generator"
+
+# =========================
+# CONSTANTS / OPTIONS
+# =========================
+SPORTS = [
+    "Gym",
+    "Running",
+    "Tennis",
+    "Baseball",
+    "Rowing",
+    "Weightlifting",
+    "Water Polo",
+]
+
+COMMON_GOALS = [
+    "Improve performance",
+    "Build fitness",
+    "Return after a break",
+    "Learn how to play",
+    "Have fun / stay active",
+]
+
+RUNNING_FOCUS_OPTIONS = [
+    "Short distance",
+    "Medium distance",
+    "Long distance",
+    "Ultra long distance",
+]
+
+RUNNING_DISTANCE_MAP = {
+    "Short distance": ["100m", "200m", "400m", "800m"],
+    "Medium distance": ["1.2k", "1.5k", "3k", "5k", "10k"],
+    "Long distance": ["15k", "Half marathon", "32k", "Marathon"],
+    "Ultra long distance": ["50k", "160k"],
+}
+
+SKILL_LEVELS = ["Beginner", "Intermediate", "Advanced"]
+INJURY_OPTIONS = ["No", "Yes - minor limitation", "Yes - recent injury"]
+
+TIME_OPTIONS_GENERAL = [
+    "30 minutes",
+    "45 minutes",
+    "60 minutes",
+    "75 minutes",
+    "90 minutes",
+    "120 minutes",
+]
+
+TIME_OPTIONS_ENDURANCE = [
+    "30 minutes",
+    "45 minutes",
+    "60 minutes",
+    "75 minutes",
+    "90 minutes",
+    "120 minutes",
+    "150 minutes",
+    "180 minutes",
+    "210 minutes",
+    "240 minutes",
+]
+
+PHYSIO_BODY_AREAS = [
+    "Knee",
+    "Ankle / foot",
+    "Hamstring",
+    "Quad",
+    "Hip / groin",
+    "Lower back",
+    "Shoulder",
+    "Elbow / forearm",
+    "Wrist / hand",
+    "Neck",
+    "Other",
+]
+
+SECTION_OPTIONS = [
+    "Training Generator",
+    "Video Review",
+    "Counselling",
+    "Physio",
+]
+
+# =========================
+# TENNIS COUNSELLING DATA
+# =========================
+# Research-backed current window around 17 Mar 2026.
+# This is a "fit engine" for now, not a live acceptance-list engine.
+
+UPCOMING_TOURNAMENTS = [
+    {
+        "name": "Fayez Sarofim & Co. U.S. Men's Clay Court Championship",
+        "tour": "ATP Tour",
+        "level": "ATP 250",
+        "city": "Houston",
+        "country": "USA",
+        "region": "North America",
+        "surface": "Clay",
+        "start_date": date(2026, 3, 29),
+        "estimated_direct_acceptance_best_fit": (1, 120),
+        "estimated_qualifying_fit": (100, 220),
+        "notes": "High-level option; better for established ATP players who already travel on ATP schedule.",
+    },
+    {
+        "name": "Tiriac Open",
+        "tour": "ATP Tour",
+        "level": "ATP 250",
+        "city": "Bucharest",
+        "country": "Romania",
+        "region": "Europe",
+        "surface": "Clay",
+        "start_date": date(2026, 3, 29),
+        "estimated_direct_acceptance_best_fit": (1, 120),
+        "estimated_qualifying_fit": (100, 220),
+        "notes": "Clay ATP 250. Good if player level is already close to ATP Tour / upper Challenger level.",
+    },
+    {
+        "name": "Grand Prix Hassan II",
+        "tour": "ATP Tour",
+        "level": "ATP 250",
+        "city": "Marrakech",
+        "country": "Morocco",
+        "region": "Africa / Europe travel corridor",
+        "surface": "Clay",
+        "start_date": date(2026, 3, 29),
+        "estimated_direct_acceptance_best_fit": (1, 120),
+        "estimated_qualifying_fit": (100, 220),
+        "notes": "Clay ATP 250. Usually better for stronger clay-court profiles.",
+    },
+    {
+        "name": "Sao Paulo Challenger",
+        "tour": "ATP Challenger Tour",
+        "level": "Challenger",
+        "city": "Sao Paulo",
+        "country": "Brazil",
+        "region": "South America",
+        "surface": "Clay",
+        "start_date": date(2026, 3, 23),
+        "estimated_direct_acceptance_best_fit": (80, 260),
+        "estimated_qualifying_fit": (220, 420),
+        "notes": "Very logical option for Brazilian or South American clay-court players.",
+    },
+    {
+        "name": "Morelia Open",
+        "tour": "ATP Challenger Tour",
+        "level": "Challenger",
+        "city": "Morelia",
+        "country": "Mexico",
+        "region": "North America",
+        "surface": "Hard",
+        "start_date": date(2026, 3, 23),
+        "estimated_direct_acceptance_best_fit": (90, 260),
+        "estimated_qualifying_fit": (220, 420),
+        "notes": "Better for hard-court players already above typical ITF range.",
+    },
+    {
+        "name": "Split Open",
+        "tour": "ATP Challenger Tour",
+        "level": "Challenger",
+        "city": "Split",
+        "country": "Croatia",
+        "region": "Europe",
+        "surface": "Clay",
+        "start_date": date(2026, 3, 23),
+        "estimated_direct_acceptance_best_fit": (90, 260),
+        "estimated_qualifying_fit": (220, 420),
+        "notes": "European clay option, best for players already at strong Challenger standard.",
+    },
+    {
+        "name": "III Challenger Montemar ENE Construccion",
+        "tour": "ATP Challenger Tour",
+        "level": "Challenger",
+        "city": "Alicante",
+        "country": "Spain",
+        "region": "Europe",
+        "surface": "Clay",
+        "start_date": date(2026, 3, 23),
+        "estimated_direct_acceptance_best_fit": (90, 260),
+        "estimated_qualifying_fit": (220, 420),
+        "notes": "Spanish clay option, good for clay specialists with Challenger level.",
+    },
+    {
+        "name": "Bucaramanga Challenger",
+        "tour": "ATP Challenger Tour",
+        "level": "Challenger",
+        "city": "Bucaramanga",
+        "country": "Colombia",
+        "region": "South America",
+        "surface": "Clay",
+        "start_date": date(2026, 3, 23),
+        "estimated_direct_acceptance_best_fit": (90, 260),
+        "estimated_qualifying_fit": (220, 420),
+        "notes": "South American clay route. Strong fit for players already established above ITF level.",
+    },
+    {
+        "name": "Yokkaichi Challenger",
+        "tour": "ATP Challenger Tour",
+        "level": "Challenger",
+        "city": "Yokkaichi",
+        "country": "Japan",
+        "region": "Asia",
+        "surface": "Hard",
+        "start_date": date(2026, 3, 23),
+        "estimated_direct_acceptance_best_fit": (90, 260),
+        "estimated_qualifying_fit": (220, 420),
+        "notes": "Hard-court Challenger option. Better only if the player is strong enough and travel makes sense.",
+    },
+    {
+        "name": "M15 Punta del Este",
+        "tour": "ITF Men's World Tennis Tour",
+        "level": "M15",
+        "city": "Punta del Este",
+        "country": "Uruguay",
+        "region": "South America",
+        "surface": "Clay",
+        "start_date": date(2026, 3, 23),
+        "estimated_direct_acceptance_best_fit": (250, 900),
+        "estimated_qualifying_fit": (700, 1800),
+        "notes": "Entry-level pro event. Good for lower-ranked players building points on clay.",
+        "entry_deadline": "Thu 5 Mar 2026, 14:00 GMT",
+        "withdrawal_deadline": "Tue 10 Mar 2026, 14:00 GMT",
+    },
+    {
+        "name": "M15 Altamura",
+        "tour": "ITF Men's World Tennis Tour",
+        "level": "M15",
+        "city": "Altamura",
+        "country": "Italy",
+        "region": "Europe",
+        "surface": "Hard",
+        "start_date": date(2026, 3, 23),
+        "estimated_direct_acceptance_best_fit": (250, 900),
+        "estimated_qualifying_fit": (700, 1800),
+        "notes": "Entry-level pro event on indoor hard. Better for developing hard-court players.",
+        "entry_deadline": "Thu 5 Mar 2026, 14:00 GMT",
+        "withdrawal_deadline": "Tue 10 Mar 2026, 14:00 GMT",
+    },
+    {
+        "name": "M15 Antalya",
+        "tour": "ITF Men's World Tennis Tour",
+        "level": "M15",
+        "city": "Antalya",
+        "country": "Turkiye",
+        "region": "Europe / Asia",
+        "surface": "Clay",
+        "start_date": date(2026, 3, 23),
+        "estimated_direct_acceptance_best_fit": (250, 900),
+        "estimated_qualifying_fit": (700, 1800),
+        "notes": "Common entry-level route on clay. Good for players trying to manage costs and get matches.",
+        "entry_deadline": "Thu 5 Mar 2026, 14:00 GMT",
+        "withdrawal_deadline": "Tue 10 Mar 2026, 14:00 GMT",
+    },
+    {
+        "name": "M15 Opatija",
+        "tour": "ITF Men's World Tennis Tour",
+        "level": "M15",
+        "city": "Opatija",
+        "country": "Croatia",
+        "region": "Europe",
+        "surface": "Clay",
+        "start_date": date(2026, 3, 23),
+        "estimated_direct_acceptance_best_fit": (250, 900),
+        "estimated_qualifying_fit": (700, 1800),
+        "notes": "Solid European clay ITF route for players still building ranking.",
+        "entry_deadline": "Thu 5 Mar 2026, 14:00 GMT",
+        "withdrawal_deadline": "Tue 10 Mar 2026, 14:00 GMT",
+    },
+]
+
+# =========================
+# HELPER FUNCTIONS
+# =========================
+def choose(*options):
+    return random.choice(options)
+
+def bullet_list(items):
+    return "\n".join([f"- {item}" for item in items])
+
+def format_plan(title, focus, warmup, main_work, strength=None, cooldown=None, notes=None):
+    text = f"## {title}\n"
+    text += f"**Focus:** {focus}\n\n"
+
+    text += f"### Warm-up\n{bullet_list(warmup)}\n\n"
+    text += f"### Main part\n{bullet_list(main_work)}\n\n"
+
+    if strength:
+        text += f"### Secondary block\n{bullet_list(strength)}\n\n"
+
+    if cooldown:
+        text += f"### Cooldown\n{bullet_list(cooldown)}\n\n"
+
+    if notes:
+        text += f"### Coaching notes\n{bullet_list(notes)}\n\n"
+
+    return text
+
+def beginner_modifier(level):
+    return level == "Beginner"
+
+def injury_caution(injury_status):
+    return injury_status != "No"
+
+def goal_is_learning(goal):
+    return goal == "Learn how to play"
+
+def time_to_minutes(time_str):
+    digits = "".join([c for c in time_str if c.isdigit()])
+    return int(digits) if digits else 60
+
+def running_distance_category(distance):
+    sprint = ["100m", "200m", "400m", "800m"]
+    medium = ["1.2k", "1.5k", "3k", "5k", "10k"]
+    long = ["15k", "Half marathon", "32k", "Marathon"]
+    ultra = ["50k", "160k"]
+
+    if distance in sprint:
+        return "short"
+    if distance in medium:
+        return "medium"
+    if distance in long:
+        return "long"
+    if distance in ultra:
+        return "ultra"
+    return "medium"
+
+def pain_requires_physio(pain_score):
+    return pain_score >= 6
+
+def parse_date(d):
+    if isinstance(d, date):
+        return d
+    return datetime.strptime(d, "%Y-%m-%d").date()
+
+def format_date(d):
+    return parse_date(d).strftime("%d %b %Y")
+
+def region_match_score(player_region, tournament_region):
+    player_region = player_region.lower()
+    tournament_region = tournament_region.lower()
+
+    if player_region in tournament_region:
+        return 20
+    if player_region == "south america" and "north america" in tournament_region:
+        return 8
+    if player_region == "north america" and "south america" in tournament_region:
+        return 8
+    if player_region == "europe" and ("africa" in tournament_region or "europe" in tournament_region):
+        return 12
+    return 0
+
+def surface_match_score(preferred_surface, tournament_surface):
+    if preferred_surface == "No preference":
+        return 8
+    if preferred_surface == tournament_surface:
+        return 20
+    return 0
+
+def ranking_fit_score(player_ranking, event):
+    direct_low, direct_high = event["estimated_direct_acceptance_best_fit"]
+    qual_low, qual_high = event["estimated_qualifying_fit"]
+
+    if player_ranking <= 0:
+        return 0, "No ranking entered"
+    if direct_low <= player_ranking <= direct_high:
+        return 35, "Strong direct-acceptance fit"
+    if qual_low <= player_ranking <= qual_high:
+        return 24, "More realistic qualifying/alternate fit"
+    if player_ranking < direct_low:
+        return 18, "Strong enough level-wise, but event may be below best schedule level"
+    return 6, "Probably too low for comfortable entry"
+
+def level_preference_score(target_level, event_level):
+    if target_level == "Best fit":
+        return 0
+    if target_level == event_level:
+        return 18
+    if target_level == "ITF" and event_level in ["M15", "M25"]:
+        return 18
+    if target_level == "Challenger" and event_level == "Challenger":
+        return 18
+    if target_level == "ATP Tour" and event_level.startswith("ATP"):
+        return 18
+    return -8
+
+def entry_status_label(event):
+    if "entry_deadline" in event:
+        return f"Entry deadline listed: {event['entry_deadline']}"
+    return "Use official acceptance list / fact sheet for live deadline confirmation"
+
+def recommend_tournaments(player_ranking, player_region, preferred_surface, target_level):
+    scored = []
+
+    for event in UPCOMING_TOURNAMENTS:
+        score = 0
+
+        rank_score, rank_note = ranking_fit_score(player_ranking, event)
+        score += rank_score
+        score += region_match_score(player_region, event["region"])
+        score += surface_match_score(preferred_surface, event["surface"])
+        score += level_preference_score(target_level, event["level"])
+
+        scored.append({
+            **event,
+            "score": score,
+            "ranking_note": rank_note,
+        })
+
+    scored = sorted(scored, key=lambda x: x["score"], reverse=True)
+    return scored
+
+def physio_guidance(area, pain_score, symptoms):
+    base = {
+        "Knee": {
+            "stretch": "gentle quad + calf stretch",
+            "mobility": "controlled knee extension/flexion and ankle mobility",
+            "support": "ice 15-20 minutes after activity, reduce jumping and deep knee bend if painful",
+            "watch": "swelling, instability, locking, or pain that gets sharper with weight-bearing",
+        },
+        "Ankle / foot": {
+            "stretch": "calf stretch and gentle ankle circles",
+            "mobility": "alphabet ankle mobility and slow calf raises if tolerated",
+            "support": "ice 15-20 minutes, compress if swollen, avoid hard cutting or sprinting",
+            "watch": "major swelling, inability to hop, inability to bear weight, visible deformity",
+        },
+        "Hamstring": {
+            "stretch": "very gentle hamstring mobility only, not aggressive stretching",
+            "mobility": "heel digs and easy bridge holds if comfortable",
+            "support": "reduce sprinting/explosive work, use ice after training if irritated",
+            "watch": "sudden sharp pain, bruising, or pain with normal walking",
+        },
+        "Quad": {
+            "stretch": "gentle standing quad stretch",
+            "mobility": "easy leg swings and controlled bodyweight sit-to-stand",
+            "support": "reduce explosive work, ice after activity if sore",
+            "watch": "bruising, major tightness after a pop sensation, or pain climbing stairs",
+        },
+        "Hip / groin": {
+            "stretch": "adductor rock-back and light hip flexor stretch",
+            "mobility": "90/90 transitions and controlled adductor movement",
+            "support": "avoid lateral explosions and change-of-direction if symptoms increase",
+            "watch": "pain with walking, sharp groin pain, or reduced range strongly affecting movement",
+        },
+        "Lower back": {
+            "stretch": "gentle child's pose or knees-to-chest only if it feels relieving",
+            "mobility": "cat-cow and controlled pelvic tilts",
+            "support": "avoid heavy axial loading and high-impact rotation until calmer",
+            "watch": "pain shooting down the leg, numbness, weakness, or bowel/bladder issues",
+        },
+        "Shoulder": {
+            "stretch": "cross-body posterior shoulder stretch and pec mobility",
+            "mobility": "wall slides and light band external rotation",
+            "support": "reduce overhead hitting/serving/pressing for now, ice after loading if irritated",
+            "watch": "night pain, weakness, instability, or pain raising the arm overhead",
+        },
+        "Elbow / forearm": {
+            "stretch": "wrist flexor/extensor stretch",
+            "mobility": "light forearm rotation and grip opening/closing",
+            "support": "reduce repetitive hitting/throwing volume, ice after activity if sore",
+            "watch": "pain that keeps worsening with gripping, swelling, or notable loss of strength",
+        },
+        "Wrist / hand": {
+            "stretch": "gentle wrist flexion/extension mobility",
+            "mobility": "tendon glides and easy wrist circles",
+            "support": "reduce impact loading and repetitive contact, ice after activity if needed",
+            "watch": "sharp pain on grip, visible swelling, or pain after a fall",
+        },
+        "Neck": {
+            "stretch": "gentle upper-trap and levator scap stretch",
+            "mobility": "slow neck rotations and chin tucks",
+            "support": "avoid heavy shrugging/contact and monitor headache or radiating symptoms",
+            "watch": "tingling, dizziness, radiating arm symptoms, or severe restricted movement",
+        },
+        "Other": {
+            "stretch": "gentle mobility only",
+            "mobility": "controlled pain-free range of motion",
+            "support": "reduce load and monitor how symptoms change over 24-48h",
+            "watch": "worsening pain, swelling, bruising, or normal movement becoming difficult",
+        },
+    }
+
+    plan = base.get(area, base["Other"])
+
+    severity_line = "Low pain profile."
+    if pain_score >= 8:
+        severity_line = "High pain profile. Do not train through this."
+    elif pain_score >= 6:
+        severity_line = "Moderate-to-high pain profile. Sport work should be paused or reduced substantially."
+    elif pain_score >= 4:
+        severity_line = "Moderate pain profile. Keep activity submaximal and avoid aggravating actions."
+
+    red_flags = [
+        "heard a pop",
+        "cannot bear weight",
+        "can’t bear weight",
+        "numbness",
+        "tingling",
+        "severe swelling",
+        "locking",
+        "giving way",
+        "fever",
+    ]
+    red_flag_found = any(flag in symptoms.lower() for flag in red_flags)
+
+    return {
+        "severity": severity_line,
+        "stretch": plan["stretch"],
+        "mobility": plan["mobility"],
+        "support": plan["support"],
+        "watch": plan["watch"],
+        "red_flag_found": red_flag_found,
+    }
+
+# =========================
+# YOUR EXISTING TRAINING FUNCTIONS STAY HERE
+# KEEP ALL YOUR CURRENT:
+# - safety_message()
+# - generate_running_plan()
+# - generate_gym_plan()
+# - generate_tennis_plan()
+# - generate_baseball_plan()
+# - generate_rowing_plan()
+# - generate_weightlifting_plan()
+# - generate_water_polo_plan()
+# - generate_plan()
+# EXACTLY AS YOU ALREADY HAVE THEM
+# =========================
+
+def safety_message():
+    if injury_status == "No":
+        return None
+
+    if pain_score >= 8:
+        return (
+            "You reported high pain. Today's session should be replaced by rest, light mobility, "
+            "and professional evaluation before returning to normal training."
+        )
+    elif pain_score >= 5:
+        return (
+            "You reported moderate pain. The session below should be treated as reduced-intensity only. "
+            "Avoid explosive work, hard impact, and anything that increases pain."
+        )
+    else:
+        return (
+            "You reported a minor issue. Keep intensity controlled, reduce volume slightly, "
+            "and stop if symptoms increase."
+        )
+
+# =========================
+# PASTE ALL YOUR EXISTING SPORT GENERATOR FUNCTIONS BELOW THIS LINE
+# =========================
+# generate_running_plan()
+# generate_gym_plan()
+# generate_tennis_plan()
+# generate_baseball_plan()
+# generate_rowing_plan()
+# generate_weightlifting_plan()
+# generate_water_polo_plan()
+ )import streamlit as st
+import random
 
 # =========================
 # PAGE SETUP
@@ -1408,3 +1983,234 @@ if st.button("Generate training plan"):
         "This planner gives general training guidance and is not medical advice. "
         "If pain is sharp, worsening, or affecting normal movement, stop and seek qualified help."
     )
+
+# =========================
+# SECTION 2 — VIDEO REVIEW
+# =========================
+elif st.session_state.active_section == "Video Review":
+    st.header("Video Review")
+
+    st.write("Upload a sports video for a basic form review.")
+
+    review_sport = st.selectbox(
+        "Which sport is this video for?",
+        ["Tennis", "Running", "Gym / strength", "Baseball", "Rowing", "Weightlifting", "Water Polo"]
+    )
+
+    review_focus = st.selectbox(
+        "What do you want reviewed?",
+        [
+            "General technique",
+            "Serve / shot mechanics",
+            "Running mechanics",
+            "Lifting form",
+            "Movement efficiency",
+            "Injury-risk cues",
+        ]
+    )
+
+    uploaded_video = st.file_uploader(
+        "Upload video (.mp4, .mov, .avi)",
+        type=["mp4", "mov", "avi"]
+    )
+
+    if uploaded_video:
+        st.success("Video uploaded.")
+        st.markdown(
+            f"""
+### Preliminary review structure
+- **Sport:** {review_sport}
+- **Review focus:** {review_focus}
+- **Next version recommendation:** add MediaPipe/OpenCV pipeline for pose extraction, joint angles, frame-by-frame checkpoints, and annotated feedback.
+- **Current version behavior:** keep this as a review shell so the app architecture is ready without breaking your current app.
+"""
+        )
+
+        st.info(
+            "For now this section is structured professionally but does not yet run automated biomechanics. "
+            "The architecture is here so you can plug your CV pipeline in later."
+        )
+
+# =========================
+# SECTION 3 — COUNSELLING
+# =========================
+elif st.session_state.active_section == "Counselling":
+    st.header("Tennis Counselling")
+    st.write("Current first counselling function: helping a tennis player choose the most logical tournament to play.")
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        player_ranking = st.number_input(
+            "What ATP ranking does the player have? (Use 0 if unranked)",
+            min_value=0,
+            max_value=5000,
+            value=450,
+            step=1
+        )
+        player_region = st.selectbox(
+            "Where is the player today?",
+            ["South America", "North America", "Europe", "Asia", "Africa", "Oceania"]
+        )
+        preferred_surface = st.selectbox(
+            "Preferred surface",
+            ["Clay", "Hard", "Grass", "No preference"]
+        )
+
+    with c2:
+        target_level = st.selectbox(
+            "What tournament level is the player realistically targeting?",
+            ["Best fit", "ITF", "Challenger", "ATP Tour"]
+        )
+        main_goal = st.selectbox(
+            "Main tournament objective",
+            [
+                "Get into the draw",
+                "Get matches and confidence",
+                "Chase points",
+                "Prepare for a higher tier soon",
+                "Stay on preferred surface",
+            ]
+        )
+        travel_style = st.selectbox(
+            "Travel logic",
+            [
+                "Stay close / reduce travel",
+                "Best competitive fit matters most",
+                "Surface matters most",
+            ]
+        )
+
+    if st.button("Generate tournament advice"):
+        ranked_events = recommend_tournaments(
+            player_ranking=player_ranking,
+            player_region=player_region,
+            preferred_surface=preferred_surface,
+            target_level=target_level,
+        )
+
+        st.subheader("Best tournament fits right now")
+
+        for event in ranked_events[:5]:
+            st.markdown(
+                f"""
+### {event['name']}
+- **Tour / level:** {event['tour']} — {event['level']}
+- **City:** {event['city']}, {event['country']}
+- **Surface:** {event['surface']}
+- **Week starts:** {format_date(event['start_date'])}
+- **Why it fits:** {event['ranking_note']}
+- **Estimated direct-acceptance band:** {event['estimated_direct_acceptance_best_fit'][0]}–{event['estimated_direct_acceptance_best_fit'][1]}
+- **Estimated qualifying/alternate band:** {event['estimated_qualifying_fit'][0]}–{event['estimated_qualifying_fit'][1]}
+- **Travel / route note:** {event['notes']}
+- **Entry note:** {entry_status_label(event)}
+"""
+            )
+            if "withdrawal_deadline" in event:
+                st.caption(f"Withdrawal deadline listed: {event['withdrawal_deadline']}")
+
+        st.markdown("### Recommendation summary")
+
+        if player_ranking == 0:
+            st.warning(
+                "An unranked player should usually prioritize ITF-level opportunities and local/regional events first."
+            )
+        elif player_ranking <= 120:
+            st.success(
+                "This ranking profile is already more naturally aligned with ATP 250 qualifying/direct-entry logic or strong Challenger scheduling."
+            )
+        elif player_ranking <= 300:
+            st.success(
+                "This profile fits Challenger scheduling best, with ATP 250 qualifying as a selective option and ITF mainly when points/confidence are needed."
+            )
+        elif player_ranking <= 900:
+            st.info(
+                "This profile is usually best served by stronger ITF scheduling and selective Challenger attempts when surface/location align."
+            )
+        else:
+            st.info(
+                "This profile should usually prioritize ITF entries and match volume before aggressively chasing Challenger events."
+            )
+
+        if main_goal == "Get into the draw":
+            st.write(
+                "Priority rule: choose the highest event where entry is still realistic, not the biggest-name event."
+            )
+        elif main_goal == "Get matches and confidence":
+            st.write(
+                "Priority rule: choose the tier where the player can likely win rounds, not just get in."
+            )
+        elif main_goal == "Prepare for a higher tier soon":
+            st.write(
+                "Priority rule: one level below the stretch target is often the smartest scheduling choice."
+            )
+
+        st.info(
+            "This counselling engine is intentionally conservative. Exact cutoffs move week to week, so this version uses tour-level fit bands and official current tournament windows."
+        )
+
+# =========================
+# SECTION 4 — PHYSIO
+# =========================
+elif st.session_state.active_section == "Physio":
+    st.header("Physio")
+    st.write("This section gives first-line conservative recovery guidance. It is not a diagnosis.")
+
+    p1, p2 = st.columns(2)
+
+    with p1:
+        body_area = st.selectbox("Where is it hurting?", PHYSIO_BODY_AREAS)
+        physio_pain = st.slider("Pain scale from 1 to 10", 1, 10, 4)
+        pain_duration = st.selectbox(
+            "How long has it been hurting?",
+            ["Today only", "A few days", "1-2 weeks", "More than 2 weeks"]
+        )
+
+    with p2:
+        symptoms = st.text_area(
+            "Describe the symptoms briefly",
+            placeholder="For example: sharp pain on the outside of the knee when bending, no swelling, worse after running..."
+        )
+        injury_mechanism = st.selectbox(
+            "How did it start?",
+            ["Gradually / overload", "During training", "After a match/game", "After a fall / awkward movement", "Not sure"]
+        )
+        uploaded_photo = st.file_uploader(
+            "Upload a photo of the painful area (optional, can be implemented more deeply later)",
+            type=["jpg", "jpeg", "png"]
+        )
+
+    if st.button("Generate physio guidance"):
+        result = physio_guidance(body_area, physio_pain, symptoms)
+
+        st.subheader("Initial guidance")
+        st.markdown(
+            f"""
+- **Pain area:** {body_area}
+- **Pain level:** {physio_pain}/10
+- **Severity note:** {result['severity']}
+- **Suggested stretch:** {result['stretch']}
+- **Suggested mobility:** {result['mobility']}
+- **Support advice:** {result['support']}
+- **Watch closely for:** {result['watch']}
+"""
+        )
+
+        if physio_pain >= 6:
+            st.warning(
+                "Because pain is 6 or more, training should be reduced, modified heavily, or paused until symptoms calm down."
+            )
+
+        if result["red_flag_found"] or physio_pain >= 8 or injury_mechanism == "After a fall / awkward movement":
+            st.error(
+                "This symptom profile has warning signs. A qualified sports physio or doctor should assess it before normal training continues."
+            )
+        else:
+            st.info(
+                "This is conservative first-aid style guidance only. If pain is worsening, sharp, or changing normal movement, stop sport and seek qualified help."
+            )
+
+        if uploaded_photo:
+            st.success(
+                "Photo received. In a later version, this section can use image analysis for location marking and more specific guidance."
+           
